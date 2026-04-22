@@ -1049,14 +1049,33 @@ async function clearResults(){
 }
 
 // ---- QUIZ AGENTE ----
-function initAgenteQuiz(){
+async function initAgenteQuiz(){
   ['agente-start','agente-no-quiz','agente-play','agente-done'].forEach(id=>document.getElementById(id).style.display='none');
   if(currentQuiz){
+    // Chequear si el agente ya hizo este quiz
+    try{
+      const done=await sb('cx_results','GET',null,`?user_id=eq.${currentUser.user_id}&week=eq.${encodeURIComponent(currentQuiz.week)}&select=id`);
+      if(done.length){
+        // Ya lo hizo — mostrar mensaje de completado
+        document.getElementById('agente-no-quiz').style.display='block';
+        document.getElementById('agente-no-quiz').innerHTML=`<div style="text-align:center;padding:3rem 0">
+          <div style="font-size:2rem;margin-bottom:12px">✅</div>
+          <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px">¡Ya completaste el quiz de esta semana!</div>
+          <div style="font-size:14px;color:var(--text-muted)">${currentQuiz.week}</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:6px">Podés ver tu resultado en <strong>Mis resultados</strong>.</div>
+        </div>`;
+        return;
+      }
+    }catch(e){}
+    document.getElementById('agente-no-quiz').innerHTML='No hay un quiz activo por ahora. Volvé más tarde.';
     document.getElementById('agente-start').style.display='block';
     document.getElementById('agente-quiz-title').textContent=currentQuiz.week;
     document.getElementById('agente-quiz-team').textContent=currentQuiz.team||'';
     document.getElementById('agente-quiz-sub').textContent=currentQuiz.questions.length+' preguntas · '+currentQuiz.date;
-  }else{document.getElementById('agente-no-quiz').style.display='block';}
+  }else{
+    document.getElementById('agente-no-quiz').innerHTML='No hay un quiz activo por ahora. Volvé más tarde.';
+    document.getElementById('agente-no-quiz').style.display='block';
+  }
 }
 
 function startQuiz(){
@@ -1138,7 +1157,7 @@ async function submitQuiz(){
   });
   const pct=Math.round((correct/total)*100);
   try{
-    await sb('cx_results','POST',{user_id:currentUser.user_id,name:currentUser.name,week:currentQuiz.week,correct,total,pct,date:new Date().toLocaleDateString('es-AR'),details:JSON.stringify(details)});
+    await sb('cx_results','POST',{user_id:currentUser.user_id,name:currentUser.name,week:currentQuiz.week,correct,total,pct,date:new Date().toLocaleDateString('es-AR'),details:JSON.stringify(details),questions:JSON.stringify(currentQuiz.questions)});
   }catch(e){console.error('Error guardando resultado',e);}
   document.getElementById('agente-play').style.display='none';
   document.getElementById('agente-done').style.display='block';
@@ -1277,18 +1296,27 @@ let _myAllResults=[];
 async function renderMyResults(){
   const empty=document.getElementById('my-res-empty');const content=document.getElementById('my-res-content');
   try{
-    const stored=await sb('cx_results','GET',null,`?user_id=eq.${currentUser.user_id}&order=created_at.desc`);
+    const [stored, quizzes]=await Promise.all([
+      sb('cx_results','GET',null,`?user_id=eq.${currentUser.user_id}&order=created_at.desc`),
+      sb('cx_quiz','GET',null,'?select=*&order=id.desc')
+    ]);
     if(!stored.length){empty.style.display='block';content.style.display='none';return;}
+    // Cruzar resultados con preguntas del quiz correspondiente
+    const quizByWeek={};
+    quizzes.forEach(q=>{if(q.data&&q.data.week)quizByWeek[q.data.week]=q.data.questions;});
+    stored.forEach(e=>{
+      if(!e.questions&&quizByWeek[e.week]){
+        e.questions=quizByWeek[e.week];
+      }
+    });
     _myAllResults=stored;
     empty.style.display='none';content.style.display='block';
-    // Stats globales
     const avg=Math.round(stored.reduce((a,b)=>a+b.pct,0)/stored.length);
     const best=stored.reduce((a,b)=>a.pct>b.pct?a:b);
     document.getElementById('my-stats').innerHTML=`
       <div class="stat-card"><div class="stat-val">${stored.length}</div><div class="stat-lbl">Quizzes tomados</div></div>
       <div class="stat-card"><div class="stat-val">${avg}%</div><div class="stat-lbl">Mi promedio</div></div>
       <div class="stat-card"><div class="stat-val">${best.pct}%</div><div class="stat-lbl">Mi mejor puntaje</div></div>`;
-    // Filtro por mes
     const sel=document.getElementById('my-mes-filter');
     const months=new Set();
     stored.forEach(e=>{
@@ -1336,7 +1364,17 @@ function showMyReview(entry){
   let details=entry.details;
   if(typeof details==='string'){try{details=JSON.parse(details);}catch(e){details=null;}}
 
-  // Ocultar contenido y mostrar panel
+  // Intentar obtener preguntas — primero del resultado guardado, luego del quiz actual
+  let questions=null;
+  if(entry.questions){
+    let qs=entry.questions;
+    if(typeof qs==='string'){try{qs=JSON.parse(qs);}catch(e){qs=null;}}
+    questions=qs;
+  }
+  if(!questions&&currentQuiz&&currentQuiz.week===entry.week){
+    questions=currentQuiz.questions;
+  }
+
   document.getElementById('my-res-empty').style.display='none';
   document.getElementById('my-res-content').style.display='none';
 
@@ -1358,7 +1396,6 @@ function showMyReview(entry){
   if(!details||!details.length){
     html+='<div class="empty">No hay detalle disponible para este resultado.</div>';
   }else{
-    const questions=currentQuiz&&currentQuiz.week===entry.week?currentQuiz.questions:null;
     details.forEach((d,i)=>{
       const q=questions&&questions[i];
       let answerHtml='';
