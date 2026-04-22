@@ -1,12 +1,16 @@
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const RESEND_KEY = process.env.RESEND_API_KEY;
   const SUPA_URL = process.env.SUPA_URL;
   const SUPA_KEY = process.env.SUPA_KEY;
-  const PORTAL_URL = process.env.PORTAL_URL || 'https://cx-challenge.vercel.app';
+  const PORTAL_URL = process.env.PORTAL_URL || 'https://cx-challenge-nine.vercel.app';
+
+  if (!RESEND_KEY || !SUPA_URL || !SUPA_KEY) {
+    return res.status(500).json({ error: 'Missing environment variables' });
+  }
 
   async function sb(table, query = '') {
     const r = await fetch(`${SUPA_URL}/rest/v1/${table}${query}`, {
