@@ -198,6 +198,10 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         Evaluaciones
       </button>
+      <button class="sidebar-item" id="sadmin-archivo" onclick="adminTab('archivo')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+        Archivo
+      </button>
       <button class="sidebar-item" id="sadmin-recursos" onclick="adminTab('recursos')">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
         Recursos
@@ -219,6 +223,23 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
     <div id="admin-quiz" class="tab-panel active">
       <div id="active-quiz-info" style="margin-bottom:1.25rem">
         <div id="admin-quiz-lista"></div>
+      </div>
+
+      <!-- PANEL DE EDICIÓN DE QUIZ -->
+      <div id="edit-quiz-panel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border)">
+          <div style="flex:1;margin-right:1rem">
+            <label>Nombre del quiz</label>
+            <input type="text" id="edit-quiz-week" style="font-size:15px;font-weight:600" oninput="_editQuizData.week=this.value" />
+            <div style="font-size:13px;color:var(--text-muted);margin-top:4px">Editá las preguntas y guardá los cambios</div>
+          </div>
+          <button class="btn btn-sm" onclick="cerrarEditorQuiz()">← Volver</button>
+        </div>
+        <div id="edit-quiz-questions"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+          <button class="btn" onclick="cerrarEditorQuiz()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarEdicionQuiz()">Guardar cambios</button>
+        </div>
       </div>
       <div class="card">
         <div style="font-size:14px;font-weight:500;margin-bottom:4px">Información del quiz</div>
@@ -255,6 +276,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
           <button class="tab active" id="res-tab-general" onclick="resTab('general')">General</button>
           <button class="tab" id="res-tab-agente" onclick="resTab('agente')">Por agente</button>
           <button class="tab" id="res-tab-mes" onclick="resTab('mes')">Por mes</button>
+          <button class="tab" id="res-tab-tablero" onclick="resTab('tablero')">Tablero</button>
         </div>
 
         <!-- PANEL DETALLE -->
@@ -304,6 +326,17 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
             </div>
             <div id="view-mes-content"></div>
           </div>
+
+          <!-- VISTA TABLERO -->
+          <div id="res-view-tablero" style="display:none">
+            <div style="margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <label style="margin:0;white-space:nowrap">Mes:</label>
+              <select id="tablero-mes-sel" style="width:auto;font-size:13px;padding:5px 10px" onchange="renderTablero()">
+                <option value="all">Todos los meses</option>
+              </select>
+            </div>
+            <div id="tablero-content" style="overflow-x:auto"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -319,6 +352,12 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
       </div>
       <div class="section-title">Recursos disponibles</div>
       <div id="resources-list-admin"></div>
+    </div>
+
+    <!-- ARCHIVO ADMIN -->
+    <div id="admin-archivo" class="tab-panel">
+      <div class="section-title">Quizzes vencidos</div>
+      <div id="archivo-quiz-lista"><div class="empty">No hay quizzes archivados todavía.</div></div>
     </div>
 
     <!-- EVALUACIONES ADMIN -->
@@ -551,7 +590,7 @@ async function doLogin(){
 function doLogout(){currentUser=null;currentQuiz=null;playerAnswers={};document.getElementById('login-user').value='';document.getElementById('login-pass').value='';show('page-login')}
 
 function adminTab(t){
-  ['quiz','resultados','evaluaciones','recursos','usuarios'].forEach(x=>{
+  ['quiz','resultados','evaluaciones','archivo','recursos','usuarios'].forEach(x=>{
     const el=document.getElementById('sadmin-'+x);
     if(el) el.classList.toggle('active',x===t);
   });
@@ -561,6 +600,7 @@ function adminTab(t){
   if(t==='recursos') renderAdminResources();
   if(t==='usuarios') renderUsers();
   if(t==='evaluaciones'){renderAdminEvalLista();renderAdminEvalResultados();}
+  if(t==='archivo') renderArchivoQuizzes();
 }
 
 function agenteTab(t){
@@ -679,16 +719,39 @@ async function activateQuiz(){
   }catch(e){alert('Error al guardar el quiz.');}
 }
 
+function quizIsActive(q){
+  // Un quiz está activo si fue creado hace menos de 24hs
+  // La fecha está en formato dd/mm/yyyy — usamos created_at si está disponible
+  if(q._created_at){
+    const diff=(Date.now()-new Date(q._created_at).getTime())/(1000*60*60);
+    return diff<24;
+  }
+  // Fallback: comparar fecha del quiz con hoy
+  const parts=(q.data&&q.data.date)?q.data.date.split('/'):[null,null,null];
+  if(!parts[0]) return false;
+  const quizDate=new Date(`${parts[2]||new Date().getFullYear()}-${String(parts[1]).padStart(2,'0')}-${String(parts[0]).padStart(2,'0')}`);
+  const diff=(Date.now()-quizDate.getTime())/(1000*60*60);
+  return diff<24;
+}
+
 async function renderActiveQuizInfo(){
   const lista=document.getElementById('admin-quiz-lista');
   lista.innerHTML='';
   try{
     const quizzes=await sb('cx_quiz','GET',null,'?select=*&order=id.desc');
     if(!quizzes.length){
-      lista.innerHTML='<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">No hay quizzes creados todavía.</div>';
+      lista.innerHTML='<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">No hay quizzes activos hoy.</div>';
       return;
     }
-    quizzes.forEach((q,idx)=>{
+    // Guardar created_at para chequear 24hs
+    quizzes.forEach(q=>{q._created_at=q.created_at;});
+    const activos=quizzes.filter(q=>quizIsActive(q));
+    if(!activos.length){
+      lista.innerHTML='<div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">No hay quizzes activos hoy. Los anteriores están en <strong>Archivo</strong>.</div>';
+      currentQuiz=quizzes[0].data;
+      return;
+    }
+    activos.forEach((q,idx)=>{
       const d=q.data;
       const card=document.createElement('div');
       card.className='active-banner';
@@ -698,15 +761,127 @@ async function renderActiveQuizInfo(){
           <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${d.questions.length} preguntas · ${d.createdBy||''} · ${d.date||''}</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span class="tag tag-success" style="font-size:11px">Activo</span>
+          <span class="tag tag-success" style="font-size:11px">Activo hoy</span>
+          <button class="btn btn-sm" onclick="abrirEditorQuiz(${q.id})">✏️ Editar</button>
           ${idx===0?`<button class="btn btn-sm" onclick="enviarRecordatorio(this)" style="white-space:nowrap">⏰ Recordatorio</button>`:''}
           <button class="btn btn-sm btn-danger" onclick="eliminarQuiz(${q.id})">Eliminar</button>
         </div>`;
       lista.appendChild(card);
     });
-    // Actualizar currentQuiz con el más reciente
     currentQuiz=quizzes[0].data;
   }catch(e){}
+}
+
+let _editQuizId=null;
+let _editQuizData=null;
+
+async function abrirEditorQuiz(id){
+  try{
+    const quizzes=await sb('cx_quiz','GET',null,`?id=eq.${id}`);
+    if(!quizzes.length) return;
+    _editQuizId=id;
+    _editQuizData=JSON.parse(JSON.stringify(quizzes[0].data)); // deep copy
+    document.getElementById('admin-quiz-lista').style.display='none';
+    document.getElementById('edit-quiz-panel').style.display='block';
+    document.getElementById('edit-quiz-week').value=_editQuizData.week;
+    renderEditQuestions();
+  }catch(e){alert('Error al cargar el quiz.');}
+}
+
+function cerrarEditorQuiz(){
+  document.getElementById('edit-quiz-panel').style.display='none';
+  document.getElementById('admin-quiz-lista').style.display='block';
+}
+
+function renderEditQuestions(){
+  const wrap=document.getElementById('edit-quiz-questions');
+  wrap.innerHTML='';
+  const letters=['A','B','C','D'];
+  const typeLabels={multiple:'Opción múltiple',tf:'Verdadero / Falso',escrita:'Respuesta escrita'};
+  const typeColors={multiple:'tag-multiple',tf:'tag-tf',escrita:'tag-escrita'};
+  _editQuizData.questions.forEach((q,i)=>{
+    const block=document.createElement('div');
+    block.className='q-block';
+    let optsHtml='';
+    if(q.type==='multiple'){
+      optsHtml=`<div style="margin-top:10px"><label>Opciones</label>`;
+      q.options.forEach((opt,j)=>{
+        optsHtml+=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;color:var(--text-muted);font-weight:600;min-width:16px">${letters[j]}</span>
+          <input type="text" value="${opt.replace(/"/g,'&quot;')}" oninput="_editQuizData.questions[${i}].options[${j}]=this.value" style="flex:1" />
+          <button class="btn btn-sm ${q.correct===String(j)?'btn-primary':''}" onclick="_editQuizData.questions[${i}].correct='${j}';renderEditQuestions()" style="white-space:nowrap;font-size:12px">${q.correct===String(j)?'✓ Correcta':'Correcta'}</button>
+        </div>`;
+      });
+      optsHtml+='</div>';
+    }else if(q.type==='tf'){
+      optsHtml=`<div style="margin-top:10px"><label>Respuesta correcta</label><div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn btn-sm ${q.correct==='Verdadero'?'btn-primary':''}" onclick="_editQuizData.questions[${i}].correct='Verdadero';renderEditQuestions()">Verdadero</button>
+        <button class="btn btn-sm ${q.correct==='Falso'?'btn-primary':''}" onclick="_editQuizData.questions[${i}].correct='Falso';renderEditQuestions()">Falso</button>
+      </div></div>`;
+    }else{
+      optsHtml=`<div style="margin-top:10px"><label>Palabras clave correctas (separadas por coma)</label>
+        <input type="text" value="${q.correct}" oninput="_editQuizData.questions[${i}].correct=this.value" /></div>`;
+    }
+    block.innerHTML=`<div class="q-block-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12px;color:var(--text-muted);font-weight:500">Pregunta ${i+1}</span>
+          <span class="tag ${typeColors[q.type]||'tag-muted'}" style="font-size:11px">${typeLabels[q.type]||q.type}</span>
+          ${q.modulo?`<span class="tag tag-modulo" style="font-size:11px">${q.modulo}</span>`:''}
+        </div>
+      </div>
+      <label>Enunciado</label>
+      <textarea style="min-height:60px" oninput="_editQuizData.questions[${i}].text=this.value">${q.text}</textarea>
+      ${optsHtml}
+      <div style="margin-top:10px"><label>Explicación cuando se equivoca (opcional)</label>
+        <input type="text" value="${q.hint||''}" oninput="_editQuizData.questions[${i}].hint=this.value" /></div>
+      <div style="margin-top:10px"><label>Módulo del manual</label>
+        <select onchange="_editQuizData.questions[${i}].modulo=this.value">
+          <option value="">Sin módulo</option>
+          ${['Cuenta comitente','Transferencia de dinero','Transferencia de titulos','Operaciones','Loyalty','Crypto','Pay','Tarjeta'].map(m=>`<option value="${m}" ${q.modulo===m?'selected':''}>${m}</option>`).join('')}
+        </select></div>`;
+    wrap.appendChild(block);
+  });
+}
+
+async function guardarEdicionQuiz(){
+  const weekInput=document.getElementById('edit-quiz-week');
+  if(weekInput) _editQuizData.week=weekInput.value.trim();
+  if(!_editQuizData.week){alert('Escribí el nombre de la semana.');return;}
+  try{
+    await sb('cx_quiz','PATCH',{data:_editQuizData},`?id=eq.${_editQuizId}`);
+    currentQuiz=_editQuizData;
+    cerrarEditorQuiz();
+    renderActiveQuizInfo();
+    alert('✅ Quiz actualizado correctamente.');
+  }catch(e){alert('Error al guardar los cambios.');}
+}
+
+async function renderArchivoQuizzes(){
+  const lista=document.getElementById('archivo-quiz-lista');
+  lista.innerHTML='<div class="empty">Cargando...</div>';
+  try{
+    const quizzes=await sb('cx_quiz','GET',null,'?select=*&order=id.desc');
+    quizzes.forEach(q=>{q._created_at=q.created_at;});
+    const archivados=quizzes.filter(q=>!quizIsActive(q));
+    if(!archivados.length){lista.innerHTML='<div class="empty">No hay quizzes archivados todavía.</div>';return;}
+    lista.innerHTML='';
+    archivados.forEach(q=>{
+      const d=q.data;
+      const card=document.createElement('div');
+      card.className='card';card.style.marginBottom='10px';
+      card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:600;font-size:14px">${d.week}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${d.questions.length} preguntas · ${d.createdBy||''} · ${d.date||''}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="tag tag-muted" style="font-size:11px">Cerrado</span>
+          <button class="btn btn-sm btn-danger" onclick="eliminarQuiz(${q.id},true)">Eliminar</button>
+        </div>
+      </div>`;
+      lista.appendChild(card);
+    });
+  }catch(e){lista.innerHTML='<div class="empty">Error al cargar el archivo.</div>';}
 }
 
 async function enviarRecordatorio(btn){
@@ -722,14 +897,14 @@ async function enviarRecordatorio(btn){
   finally{btn.innerHTML=orig;btn.disabled=false;}
 }
 
-async function eliminarQuiz(id){
+async function eliminarQuiz(id,fromArchivo=false){
   if(!confirm('¿Eliminar este quiz? Los resultados asociados se mantendrán.')) return;
   try{
     await sb('cx_quiz','DELETE',null,`?id=eq.${id}`);
-    // Recargar currentQuiz
     const quizzes=await sb('cx_quiz','GET',null,'?select=*&order=id.desc&limit=1');
     currentQuiz=quizzes.length?quizzes[0].data:null;
-    renderActiveQuizInfo();
+    if(fromArchivo) renderArchivoQuizzes();
+    else renderActiveQuizInfo();
   }catch(e){alert('Error al eliminar el quiz.');}
 }
 
@@ -843,12 +1018,13 @@ function closeDetail(){
 }
 
 function resTab(t){
-  ['general','agente','mes'].forEach(x=>{
+  ['general','agente','mes','tablero'].forEach(x=>{
     document.getElementById('res-tab-'+x).classList.toggle('active',x===t);
     document.getElementById('res-view-'+x).style.display=x===t?'block':'none';
   });
   if(t==='agente') buildAgenteFilter();
   if(t==='mes') buildMesFilter();
+  if(t==='tablero') initTablero();
 }
 
 const MONTH_NAMES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -1052,11 +1228,24 @@ async function clearResults(){
 async function initAgenteQuiz(){
   ['agente-start','agente-no-quiz','agente-play','agente-done'].forEach(id=>document.getElementById(id).style.display='none');
   if(currentQuiz){
+    // Chequear si el quiz está vencido (más de 24hs)
+    const quizzes=await sb('cx_quiz','GET',null,'?select=*&order=id.desc&limit=1').catch(()=>[]);
+    const latestQuiz=quizzes[0];
+    const isExpired=latestQuiz&&latestQuiz.created_at&&((Date.now()-new Date(latestQuiz.created_at).getTime())/(1000*60*60))>=24;
+    if(isExpired){
+      document.getElementById('agente-no-quiz').style.display='block';
+      document.getElementById('agente-no-quiz').innerHTML=`<div style="text-align:center;padding:3rem 0">
+        <div style="font-size:2rem;margin-bottom:12px">🔒</div>
+        <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px">El quiz de esta semana ya cerró</div>
+        <div style="font-size:14px;color:var(--text-muted)">${currentQuiz.week}</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:6px">El próximo quiz estará disponible pronto.</div>
+      </div>`;
+      return;
+    }
     // Chequear si el agente ya hizo este quiz
     try{
       const done=await sb('cx_results','GET',null,`?user_id=eq.${currentUser.user_id}&week=eq.${encodeURIComponent(currentQuiz.week)}&select=id`);
       if(done.length){
-        // Ya lo hizo — mostrar mensaje de completado
         document.getElementById('agente-no-quiz').style.display='block';
         document.getElementById('agente-no-quiz').innerHTML=`<div style="text-align:center;padding:3rem 0">
           <div style="font-size:2rem;margin-bottom:12px">✅</div>
@@ -1876,6 +2065,153 @@ async function submitEval(){
     if(q.hint&&!d.ok) html+=`<div class="hint-box"><strong>Por qué:</strong> ${q.hint}</div>`;
     c.innerHTML=html;review.appendChild(c);
   });
+}
+
+// ---- TABLERO ----
+let _tableroResults=[];
+let _tableroAgentes=[];
+
+async function initTablero(){
+  const wrap=document.getElementById('tablero-content');
+  wrap.innerHTML='<div class="empty">Cargando...</div>';
+  try{
+    const [results,users]=await Promise.all([
+      sb('cx_results','GET',null,'?select=*&order=created_at.asc'),
+      sb('cx_users','GET',null,'?role=eq.agente&select=name,user_id&order=name.asc')
+    ]);
+    _tableroResults=results;
+    _tableroAgentes=users;
+    // Poblar filtro de mes
+    const sel=document.getElementById('tablero-mes-sel');
+    const months=new Set();
+    results.forEach(r=>{
+      const parts=r.date?r.date.split('/'):[]; 
+      if(parts.length>=2){const m=parseInt(parts[1]);const y=parts[2]||new Date().getFullYear();months.add(`${y}-${String(m).padStart(2,'0')}`);}
+    });
+    const cur=sel.value;
+    sel.innerHTML='<option value="all">Todos los meses</option>';
+    [...months].sort().reverse().forEach(k=>{
+      const [y,m]=k.split('-');
+      const o=document.createElement('option');o.value=k;o.textContent=`${MONTH_NAMES[parseInt(m)-1]} ${y}`;sel.appendChild(o);
+    });
+    sel.value=cur||'all';
+    renderTablero();
+  }catch(e){wrap.innerHTML='<div class="empty">Error al cargar el tablero.</div>';}
+}
+
+function renderTablero(){
+  const wrap=document.getElementById('tablero-content');
+  const filtroMes=document.getElementById('tablero-mes-sel').value;
+  let results=_tableroResults;
+
+  // Filtrar por mes si corresponde
+  if(filtroMes!=='all'){
+    const [y,m]=filtroMes.split('-');
+    results=results.filter(r=>{
+      const parts=r.date?r.date.split('/'):[];
+      if(parts.length<2)return false;
+      return String(parseInt(parts[1])).padStart(2,'0')===m&&(parts[2]||String(new Date().getFullYear()))===y;
+    });
+  }
+
+  if(!results.length){wrap.innerHTML='<div class="empty">Sin resultados para este período.</div>';return;}
+
+  // Obtener quizzes únicos ordenados por fecha
+  const quizzesMap={};
+  results.forEach(r=>{if(!quizzesMap[r.week])quizzesMap[r.week]=r.date;});
+  const quizzes=Object.entries(quizzesMap).sort((a,b)=>a[1]>b[1]?1:-1).map(([week,date])=>({week,date}));
+
+  // Obtener agentes únicos de los resultados + lista de usuarios
+  const agentNamesFromResults=[...new Set(results.map(r=>r.name))].sort();
+  const agentNames=_tableroAgentes.length
+    ?[...new Set([..._tableroAgentes.map(a=>a.name),...agentNamesFromResults])].sort()
+    :agentNamesFromResults;
+
+  // Construir mapa: agente → semana → resultado
+  const matrix={};
+  agentNames.forEach(name=>{matrix[name]={};});
+  results.forEach(r=>{
+    if(!matrix[r.name])matrix[r.name]={};
+    // Si hay múltiples intentos para la misma semana, quedarse con el mejor
+    if(!matrix[r.name][r.week]||r.pct>matrix[r.name][r.week]){
+      matrix[r.name][r.week]=r.pct;
+    }
+  });
+
+  // Renderizar tabla
+  const APROBADO=80;
+  let html=`<table style="border-collapse:collapse;width:100%;font-size:13px;min-width:600px">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:10px 14px;background:var(--blue-darker);color:#fff;font-weight:600;border-radius:8px 0 0 0;white-space:nowrap;min-width:160px">CX Analyst</th>`;
+  quizzes.forEach(q=>{
+    html+=`<th style="text-align:center;padding:10px 10px;background:var(--blue-darker);color:#fff;font-weight:600;white-space:nowrap;font-size:12px">${q.date}<br><span style="font-weight:400;opacity:.7;font-size:11px">${q.week}</span></th>`;
+  });
+  html+=`<th style="text-align:center;padding:10px 14px;background:var(--blue-darker);color:#fff;font-weight:600;border-radius:0 8px 0 0;white-space:nowrap">Promedio</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  agentNames.forEach((name,idx)=>{
+    const row=matrix[name]||{};
+    const scores=quizzes.map(q=>row[q.week]!==undefined?row[q.week]:null);
+    const done=scores.filter(s=>s!==null);
+    const avg=done.length?Math.round(done.reduce((a,b)=>a+b,0)/done.length):null;
+    const bg=idx%2===0?'#fff':'#f8fbff';
+
+    html+=`<tr style="background:${bg}">
+      <td style="padding:10px 14px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border)">${name}</td>`;
+
+    scores.forEach(s=>{
+      if(s===null){
+        html+=`<td style="text-align:center;padding:10px;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:12px">—</td>`;
+      }else{
+        const ok=s>=APROBADO;
+        html+=`<td style="text-align:center;padding:10px;border-bottom:1px solid var(--border)">
+          <span style="display:inline-block;padding:4px 10px;border-radius:20px;font-weight:700;font-size:13px;background:${ok?'var(--success-bg)':'var(--danger-bg)'};color:${ok?'var(--success)':'var(--danger)'}">${s}%</span>
+        </td>`;
+      }
+    });
+
+    // Promedio
+    if(avg===null){
+      html+=`<td style="text-align:center;padding:10px;border-bottom:1px solid var(--border);color:var(--text-muted)">—</td>`;
+    }else{
+      const ok=avg>=APROBADO;
+      html+=`<td style="text-align:center;padding:10px;border-bottom:1px solid var(--border)">
+        <span style="display:inline-block;padding:4px 12px;border-radius:20px;font-weight:700;font-size:13px;background:${ok?'var(--success-bg)':'var(--danger-bg)'};color:${ok?'var(--success)':'var(--danger)'}">${avg}%</span>
+      </td>`;
+    }
+    html+=`</tr>`;
+  });
+
+  // Fila de total general
+  const totals=quizzes.map(q=>{
+    const vals=agentNames.map(n=>matrix[n]&&matrix[n][q.week]!==undefined?matrix[n][q.week]:null).filter(v=>v!==null);
+    return vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):null;
+  });
+  const totalAvg=totals.filter(t=>t!==null);
+  const grandAvg=totalAvg.length?Math.round(totalAvg.reduce((a,b)=>a+b,0)/totalAvg.length):null;
+
+  html+=`<tr style="background:var(--blue-darker)">
+    <td style="padding:10px 14px;font-weight:700;color:#fff">Total general</td>`;
+  totals.forEach(t=>{
+    if(t===null){html+=`<td style="text-align:center;padding:10px;color:rgba(255,255,255,.5)">—</td>`;}
+    else{
+      const ok=t>=APROBADO;
+      html+=`<td style="text-align:center;padding:10px">
+        <span style="display:inline-block;padding:4px 10px;border-radius:20px;font-weight:700;font-size:13px;background:${ok?'rgba(0,122,90,.3)':'rgba(192,57,43,.3)'};color:${ok?'#7FFFD4':'#FFB3B3'}">${t}%</span>
+      </td>`;
+    }
+  });
+  if(grandAvg!==null){
+    const ok=grandAvg>=APROBADO;
+    html+=`<td style="text-align:center;padding:10px">
+      <span style="display:inline-block;padding:4px 12px;border-radius:20px;font-weight:700;font-size:13px;background:${ok?'rgba(0,122,90,.3)':'rgba(192,57,43,.3)'};color:${ok?'#7FFFD4':'#FFB3B3'}">${grandAvg}%</span>
+    </td>`;
+  }else{html+=`<td></td>`;}
+  html+=`</tr></tbody></table>`;
+  wrap.innerHTML=html;
 }
 
 init();
