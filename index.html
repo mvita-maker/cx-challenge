@@ -202,6 +202,10 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
         Archivo
       </button>
+      <button class="sidebar-item" id="sadmin-ranking" onclick="adminTab('ranking')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        🏆 Ranking
+      </button>
       <button class="sidebar-item" id="sadmin-recursos" onclick="adminTab('recursos')">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
         Recursos
@@ -300,7 +304,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
                 <option value="all">Todos los meses</option>
               </select>
             </div>
-            <div class="card" style="padding:0 1.5rem;margin-bottom:1.5rem"><div id="admin-ranking"></div></div>
+            <div class="card" style="padding:0 1.5rem;margin-bottom:1.5rem"><div id="admin-ranking-list"></div></div>
             <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
               <div class="section-title" style="margin:0">Historial — hacé click para ver el detalle</div>
               <div style="display:flex;gap:8px">
@@ -322,7 +326,7 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
           <div id="res-view-mes" style="display:none">
             <div style="margin-bottom:14px;display:flex;gap:10px;align-items:center">
               <label style="margin:0;white-space:nowrap">Mes:</label>
-              <select id="filter-mes-sel" style="width:auto;font-size:13px;padding:5px 10px" onchange="renderViewMes()"><option value="">Seleccioná un mes</option></select>
+              <select id="filter-mes-sel" style="width:auto;font-size:13px;padding:5px 10px" onchange="renderViewMes()"><option value="">Selecciona un mes</option></select>
             </div>
             <div id="view-mes-content"></div>
           </div>
@@ -337,6 +341,61 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
             </div>
             <div id="tablero-content" style="overflow-x:auto"></div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RANKING DE PRENDAS -->
+    <div id="admin-ranking" class="tab-panel">
+      <!-- Gestión manual de agentes para el ranking -->
+      <div id="ranking-sin-usuarios" style="display:none;margin-bottom:1.25rem">
+        <div class="card" style="border-left:3px solid var(--blue)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">Agregar agentes al ranking</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <input type="text" id="ranking-nuevo-nombre" placeholder="Nombre del agente" style="flex:1" />
+            <button class="btn btn-primary btn-sm" onclick="agregarAgenteRanking()">Agregar</button>
+          </div>
+          <div id="ranking-agentes-lista" style="font-size:13px;color:var(--text-muted)"></div>
+        </div>
+      </div>
+
+      <!-- Header con selector de mes -->
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:1.5rem">
+        <div>
+          <div style="font-size:18px;font-weight:700;color:var(--text)">🏆 Ranking de prendas</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:2px">El que más puntos acumula al cierre del mes debe una prenda</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <select id="ranking-mes-sel" style="width:auto;font-size:13px;padding:6px 12px" onchange="renderRanking()">
+            <option value="">Selecciona un mes</option>
+          </select>
+          <button class="btn btn-sm" onclick="cerrarMesRanking()" id="btn-cerrar-mes" style="display:none">🔒 Cerrar mes</button>
+          <button class="btn btn-sm btn-primary" onclick="exportarRanking()">⬇ Exportar</button>
+        </div>
+      </div>
+
+      <!-- Semanas del mes -->
+      <div id="ranking-semanas-header" style="display:none;margin-bottom:1rem">
+        <div class="section-title">Semanas del mes</div>
+        <div id="ranking-semanas-list" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+
+      <!-- Tabla de ranking -->
+      <div id="ranking-tabla-wrap">
+        <div class="empty">Selecciona un mes para ver el ranking.</div>
+      </div>
+
+      <!-- Info de acumulados -->
+      <div id="ranking-acumulados" style="display:none;margin-top:1.5rem">
+        <div class="section-title">Puntos acumulados de meses anteriores (empates)</div>
+        <div id="ranking-acumulados-content" class="card" style="padding:0 1.5rem"></div>
+      </div>
+
+      <!-- Historial de prendas -->
+      <div style="margin-top:1.5rem">
+        <div class="section-title">Historial de prendas</div>
+        <div id="ranking-historial" class="card" style="padding:0 1.5rem">
+          <div class="empty" style="padding:1.5rem 0">Sin prendas registradas todavía.</div>
         </div>
       </div>
     </div>
@@ -439,6 +498,10 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
         Recursos
       </button>
+      <button class="sidebar-item" id="sagente-ranking" onclick="agenteTab('ranking')">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        🏆 Ranking
+      </button>
     </nav>
     <div class="sidebar-footer">
       <div class="sidebar-user" id="agente-username"></div>
@@ -524,6 +587,12 @@ label{font-size:12px;color:var(--text-muted);display:block;margin-bottom:5px;fon
       <div id="agente-resources-list"></div>
       <div id="agente-res-empty" class="empty" style="display:none">No hay recursos disponibles todavía.</div>
     </div>
+
+    <div id="agente-ranking" class="tab-panel">
+      <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:4px">🏆 Ranking de prendas</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">El que más puntos acumula al cierre del mes debe una prenda</div>
+      <div id="agente-ranking-content"><div class="empty">Cargando ranking...</div></div>
+    </div>
   </div>
   </div>
 </div>
@@ -553,7 +622,10 @@ async function init(){
       await sb('cx_users','POST',{user_id:'admin',pass:'admin123',role:'admin',name:'Administrador'});
       await sb('cx_users','POST',{user_id:'agente1',pass:'agente123',role:'agente',name:'Agente 1'});
     }
-  }catch(e){console.error(e);}
+  }catch(e){
+    // Sin backend — continuar igual, el login usará credenciales locales
+    console.warn('Sin conexión a backend, modo offline.');
+  }
   document.getElementById('loading-overlay').style.display='none';
   show('page-login');
 }
@@ -568,11 +640,28 @@ async function doLogin(){
   if(!u||!p){err.style.display='block';err.textContent='Completá usuario y contraseña.';return;}
   btn.innerHTML='<span class="spinner"></span> Ingresando...';btn.disabled=true;
   try{
-    const users=await sb('cx_users','GET',null,`?user_id=eq.${u}&pass=eq.${p}`);
-    if(!users.length){err.style.display='block';err.textContent='Usuario o contraseña incorrectos.';return;}
+    let users=[];
+    try{ users=await sb('cx_users','GET',null,`?user_id=eq.${u}&pass=eq.${p}`); }catch(e){}
+
+    // Fallback offline: usuarios guardados en localStorage
+    if(!users.length){
+      const localUsers=JSON.parse(localStorage.getItem('cx_local_users')||'[]');
+      users=localUsers.filter(x=>x.user_id===u&&x.pass===p);
+    }
+    // Fallback hardcodeado
+    if(!users.length){
+      const defaults=[{user_id:'admin',pass:'admin123',role:'admin',name:'Administrador'},{user_id:'agente1',pass:'agente123',role:'agente',name:'Agente 1'}];
+      users=defaults.filter(x=>x.user_id===u&&x.pass===p);
+    }
+
+    if(!users.length){err.style.display='block';err.textContent='Usuario o contraseña incorrectos.';btn.innerHTML='Ingresar';btn.disabled=false;return;}
     err.style.display='none';currentUser=users[0];
-    const quizzes=await sb('cx_quiz','GET',null,'?select=*&order=id.desc&limit=1');
-    currentQuiz=quizzes.length?quizzes[0].data:null;
+    let currentQuizData=null;
+    try{
+      const quizzes=await sb('cx_quiz','GET',null,'?select=*&order=id.desc&limit=1');
+      currentQuizData=quizzes.length?quizzes[0].data:null;
+    }catch(e){}
+    currentQuiz=currentQuizData;
     if(currentUser.role==='agente'){
       document.getElementById('agente-username').textContent=currentUser.name;
       document.getElementById('agente-sidebar-sub').textContent=currentUser.name;
@@ -590,7 +679,7 @@ async function doLogin(){
 function doLogout(){currentUser=null;currentQuiz=null;playerAnswers={};document.getElementById('login-user').value='';document.getElementById('login-pass').value='';show('page-login')}
 
 function adminTab(t){
-  ['quiz','resultados','evaluaciones','archivo','recursos','usuarios'].forEach(x=>{
+  ['quiz','resultados','evaluaciones','archivo','ranking','recursos','usuarios'].forEach(x=>{
     const el=document.getElementById('sadmin-'+x);
     if(el) el.classList.toggle('active',x===t);
   });
@@ -601,10 +690,11 @@ function adminTab(t){
   if(t==='usuarios') renderUsers();
   if(t==='evaluaciones'){renderAdminEvalLista();renderAdminEvalResultados();}
   if(t==='archivo') renderArchivoQuizzes();
+  if(t==='ranking') initRanking();
 }
 
 function agenteTab(t){
-  ['quiz','mis-resultados','evaluaciones','recursos'].forEach(x=>{
+  ['quiz','mis-resultados','evaluaciones','recursos','ranking'].forEach(x=>{
     const el=document.getElementById('sagente-'+x);
     if(el) el.classList.toggle('active',x===t);
   });
@@ -613,6 +703,7 @@ function agenteTab(t){
   if(t==='mis-resultados') renderMyResults();
   if(t==='recursos') renderAgenteResources();
   if(t==='evaluaciones') renderAgenteEvalLista();
+  if(t==='ranking') renderAgenteRanking();
 }
 
 // ---- EDITOR ----
@@ -950,7 +1041,7 @@ function showDetail(entry){
   const panel=document.getElementById('detail-panel');
   const histWrap=document.getElementById('hist-wrap');
   document.getElementById('detail-name').textContent=entry.name;
-  document.getElementById('detail-meta').textContent=`${entry.week} · ${entry.date} · ${entry.correct}/${entry.total} correctas (${entry.pct}%)`;
+  document.getElementById('detail-meta').textContent=`${entry.week} · ${entry.date}${entry.hora?' · '+entry.hora:''} · ${entry.correct}/${entry.total} correctas (${entry.pct}%)`;
 
   const qWrap=document.getElementById('detail-questions');
   qWrap.innerHTML='';
@@ -1056,7 +1147,7 @@ function renderViewAgente(){
   data.forEach(e=>{
     const safeEntry=JSON.stringify(e).replace(/'/g,"\\'");
     html+=`<div class="hist-row" style="cursor:pointer" onclick='showDetail(${JSON.stringify(e)})'>
-      <div><div style="font-weight:500">${e.week}</div><div style="font-size:12px;color:var(--text-muted)">${e.date} · ${e.correct}/${e.total} correctas</div></div>
+      <div><div style="font-weight:500">${e.week}</div><div style="font-size:12px;color:var(--text-muted)">${e.date}${e.hora?' · '+e.hora:''} · ${e.correct}/${e.total} correctas</div></div>
       <div style="display:flex;gap:10px;align-items:center">
         <span class="tag ${e.pct>=60?'tag-success':'tag-danger'}">${e.pct}%</span>
         <span style="font-size:12px;color:var(--blue);font-weight:500">Ver →</span>
@@ -1076,7 +1167,7 @@ function buildMesFilter(){
     if(parts.length>=2){const m=parseInt(parts[1]);const y=parts[2]||new Date().getFullYear();months.add(`${y}-${String(m).padStart(2,'0')}`);}
   });
   const cur=sel.value;
-  sel.innerHTML='<option value="">Seleccioná un mes</option>';
+  sel.innerHTML='<option value="">Selecciona un mes</option>';
   [...months].sort().reverse().forEach(k=>{
     const [y,m]=k.split('-');
     const o=document.createElement('option');o.value=k;o.textContent=`${MONTH_NAMES[parseInt(m)-1]} ${y}`;sel.appendChild(o);
@@ -1090,39 +1181,156 @@ function renderViewMes(){
   const wrap=document.getElementById('view-mes-content');
   if(!sel){wrap.innerHTML='';return;}
   const [y,m]=sel.split('-');
+  const mesNombre=`${MONTH_NAMES[parseInt(m)-1]} ${y}`;
   const data=window._allResults.filter(e=>{
     const parts=e.date.split('/');if(parts.length<2)return false;
     return String(parseInt(parts[1])).padStart(2,'0')===m&&(parts[2]||String(new Date().getFullYear()))===y;
   });
   if(!data.length){wrap.innerHTML='<div class="empty">Sin resultados para este mes.</div>';return;}
-  const avg=Math.round(data.reduce((a,b)=>a+b.pct,0)/data.length);
-  const best=data.reduce((a,b)=>a.pct>b.pct?a:b);
+
+  // Quizzes únicos del mes
+  const quizzesDelMes=[...new Set(data.map(e=>e.week))];
+  const totalQuizzesMes=quizzesDelMes.length;
+
+  // Agentes únicos con resultado + todos los agentes conocidos
+  const agentesConResultado=[...new Set(data.map(e=>e.name))];
+
+  // Construir ranking con 0 para quizzes no hechos
   const byUser={};
-  data.forEach(e=>{if(!byUser[e.name])byUser[e.name]={name:e.name,total:0,sum:0,best:0};byUser[e.name].total++;byUser[e.name].sum+=e.pct;if(e.pct>byUser[e.name].best)byUser[e.name].best=e.pct;});
-  const ranking=Object.values(byUser).map(u=>({...u,avg:Math.round(u.sum/u.total)})).sort((a,b)=>b.avg-a.avg);
-  const medals=['🥇','🥈','🥉'];
-  let html=`<div class="stat-grid" style="margin-bottom:1rem">
-    <div class="stat-card"><div class="stat-val">${data.length}</div><div class="stat-lbl">Respuestas</div></div>
-    <div class="stat-card"><div class="stat-val">${avg}%</div><div class="stat-lbl">Promedio del mes</div></div>
-    <div class="stat-card"><div class="stat-val">${best.pct}%</div><div class="stat-lbl">Mejor puntaje</div></div>
-  </div><div class="section-title">Ranking del mes</div>
-  <div class="card" style="padding:0 1.5rem;margin-bottom:1.25rem">`;
-  ranking.forEach((u,i)=>{
-    html+=`<div class="hist-row"><div style="display:flex;align-items:center;gap:12px"><span style="font-size:18px;min-width:28px">${medals[i]||'#'+(i+1)}</span><div><div style="font-weight:500">${u.name}</div><div style="font-size:12px;color:var(--text-muted)">${u.total} quiz${u.total!==1?'zes':''} · Mejor: ${u.best}%</div></div></div><div style="text-align:right"><div style="font-size:18px;font-weight:600;color:var(--blue)">${u.avg}%</div><div style="font-size:11px;color:var(--text-muted)">promedio</div></div></div>`;
+  agentesConResultado.forEach(name=>{
+    byUser[name]={name,quizzesHechos:0,sum:0,best:0,pcts:[]};
   });
-  html+='</div><div class="section-title">Detalle de respuestas</div><div class="card" style="padding:0 1.5rem">';
   data.forEach(e=>{
+    byUser[e.name].quizzesHechos++;
+    byUser[e.name].sum+=e.pct;
+    byUser[e.name].pcts.push(e.pct);
+    if(e.pct>byUser[e.name].best)byUser[e.name].best=e.pct;
+  });
+
+  // Promedio sobre total de quizzes del mes (faltantes = 0)
+  const ranking=Object.values(byUser).map(u=>{
+    const faltantes=totalQuizzesMes-u.quizzesHechos;
+    const totalSum=u.sum; // faltantes suman 0
+    const avg=Math.round(totalSum/totalQuizzesMes);
+    return{...u,avg,faltantes};
+  }).sort((a,b)=>b.avg-a.avg);
+
+  const avg=Math.round(ranking.reduce((a,b)=>a+b.avg,0)/ranking.length);
+  const best=ranking.reduce((a,b)=>a.best>b.best?a:b);
+  const APROBADO=80;
+  const aprobados=ranking.filter(u=>u.avg>=APROBADO).length;
+  const medals=['🥇','🥈','🥉'];
+
+  let html=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px">
+    <div>
+      <div style="font-size:20px;font-weight:700;color:var(--text)">${mesNombre}</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:2px">${ranking.length} agentes · ${totalQuizzesMes} quiz${totalQuizzesMes!==1?'zes':''} en el mes</div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="descargarExcelMes('${sel}','${mesNombre}')">⬇ Descargar Excel</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:1.5rem">
+    <div style="background:var(--blue-darker);border-radius:var(--radius-sm);padding:1rem;text-align:center">
+      <div style="font-size:26px;font-weight:700;color:#fff">${totalQuizzesMes}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;font-weight:500;text-transform:uppercase;letter-spacing:.05em">Quizzes del mes</div>
+    </div>
+    <div style="background:var(--blue-darker);border-radius:var(--radius-sm);padding:1rem;text-align:center">
+      <div style="font-size:26px;font-weight:700;color:${avg>=APROBADO?'#7FFFD4':'#FFB3B3'}">${avg}%</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;font-weight:500;text-transform:uppercase;letter-spacing:.05em">Promedio equipo</div>
+    </div>
+    <div style="background:var(--blue-darker);border-radius:var(--radius-sm);padding:1rem;text-align:center">
+      <div style="font-size:26px;font-weight:700;color:#7FFFD4">${aprobados}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;font-weight:500;text-transform:uppercase;letter-spacing:.05em">Aprobados ≥${APROBADO}%</div>
+    </div>
+    <div style="background:var(--blue-darker);border-radius:var(--radius-sm);padding:1rem;text-align:center">
+      <div style="font-size:26px;font-weight:700;color:#fff">${best.best}%</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;font-weight:500;text-transform:uppercase;letter-spacing:.05em">Mejor puntaje</div>
+    </div>
+  </div>
+
+  <div class="section-title">Ranking del mes</div>
+  <div class="card" style="padding:1.25rem 1.5rem;margin-bottom:1.25rem">`;
+
+  ranking.forEach((u,i)=>{
+    const aprobado=u.avg>=APROBADO;
+    html+=`<div style="margin-bottom:${i<ranking.length-1?'1.25rem':'0'}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:18px;min-width:28px">${medals[i]||`<span style="font-size:13px;font-weight:700;color:var(--text-muted)">#${i+1}</span>`}</span>
+          <div>
+            <div style="font-weight:600;font-size:14px">${u.name}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${u.quizzesHechos}/${totalQuizzesMes} quizzes${u.faltantes>0?` · <span style="color:var(--danger)">${u.faltantes} sin hacer</span>`:''}</div>
+          </div>
+        </div>
+        <div style="text-align:right;display:flex;align-items:center;gap:10px">
+          <span class="tag ${aprobado?'tag-success':'tag-danger'}" style="font-size:11px">${aprobado?'Aprobado':'Desaprobado'}</span>
+          <div>
+            <div style="font-size:20px;font-weight:700;color:${aprobado?'var(--success)':'var(--danger)'}">${u.avg}%</div>
+            <div style="font-size:11px;color:var(--text-muted)">promedio</div>
+          </div>
+        </div>
+      </div>
+      <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${u.avg}%;background:${aprobado?'var(--success)':'var(--danger)'};border-radius:3px;transition:width .5s ease"></div>
+      </div>
+    </div>`;
+  });
+
+  html+=`</div><div class="section-title">Detalle de respuestas</div><div class="card" style="padding:0 1.5rem">`;
+  data.forEach(e=>{
+    const ok=e.pct>=APROBADO;
     html+=`<div class="hist-row res-mes-row" style="cursor:pointer">
-      <div><div style="font-weight:500">${e.name}</div><div style="font-size:12px;color:var(--text-muted)">${e.week} · ${e.date}</div></div>
+      <div>
+        <div style="font-weight:500">${e.name}</div>
+        <div style="font-size:12px;color:var(--text-muted)">${e.week} · ${e.date}</div>
+      </div>
       <div style="display:flex;gap:10px;align-items:center">
         <span style="font-size:13px;color:var(--text-muted)">${e.correct}/${e.total}</span>
-        <span class="tag ${e.pct>=60?'tag-success':'tag-danger'}">${e.pct}%</span>
-        <span style="font-size:12px;color:var(--blue);font-weight:500">Ver →</span>
-      </div></div>`;
+        <span class="tag ${ok?'tag-success':'tag-danger'}">${e.pct}%</span>
+        <span style="font-size:12px;color:var(--blue);font-weight:600">Ver →</span>
+      </div>
+    </div>`;
   });
-  html+='</div>';
+  html+=`</div>`;
   wrap.innerHTML=html;
   wrap.querySelectorAll('.res-mes-row').forEach((row,i)=>{row.onclick=()=>showDetail(data[i]);});
+}
+
+function descargarExcelMes(sel, mesNombre){
+  const [y,m]=sel.split('-');
+  const data=window._allResults.filter(e=>{
+    const parts=e.date.split('/');if(parts.length<2)return false;
+    return String(parseInt(parts[1])).padStart(2,'0')===m&&(parts[2]||String(new Date().getFullYear()))===y;
+  });
+  if(!data.length){alert('Sin resultados para exportar.');return;}
+  const APROBADO=80;
+  const quizzesDelMes=[...new Set(data.map(e=>e.week))];
+  const totalQuizzesMes=quizzesDelMes.length;
+  const byUser={};
+  data.forEach(e=>{
+    if(!byUser[e.name])byUser[e.name]={name:e.name,quizzesHechos:0,sum:0,best:0};
+    byUser[e.name].quizzesHechos++;
+    byUser[e.name].sum+=e.pct;
+    if(e.pct>byUser[e.name].best)byUser[e.name].best=e.pct;
+  });
+  const ranking=Object.values(byUser).map(u=>({
+    ...u,
+    avg:Math.round(u.sum/totalQuizzesMes),
+    faltantes:totalQuizzesMes-u.quizzesHechos
+  })).sort((a,b)=>b.avg-a.avg);
+  const bom='\uFEFF';
+  const headers=['Posición','Agente',`Quizzes realizados (de ${totalQuizzesMes})`,'Sin hacer','Mejor puntaje','Promedio del mes (con ausencias)','Estado'];
+  const rows=ranking.map((u,i)=>[
+    i+1,u.name,u.quizzesHechos,u.faltantes,u.best+'%',u.avg+'%',
+    u.avg>=APROBADO?'Aprobado':'Desaprobado'
+  ]);
+  const csv=bom+[headers,...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`CX_Challenge_${mesNombre.replace(' ','_')}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
 }
 
 function buildRankingFilter(stored){
@@ -1183,8 +1391,8 @@ function downloadExcel(){
     });
   }
   if(!data.length){alert('No hay resultados para el período seleccionado.');return;}
-  const headers=['Nombre','Usuario','Semana','Fecha','Correctas','Total','Porcentaje'];
-  const rows=data.map(e=>[e.name,e.user_id||'',e.week,e.date,e.correct,e.total,e.pct+'%']);
+  const headers=['Nombre','Usuario','Semana','Fecha','Hora','Correctas','Total','Porcentaje'];
+  const rows=data.map(e=>[e.name,e.user_id||'',e.week,e.date,e.hora||'',e.correct,e.total,e.pct+'%']);
   let csv=headers.join(',')+'\n';
   rows.forEach(r=>{csv+=r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')+'\n';});
   const bom='﻿';
@@ -1207,7 +1415,7 @@ function renderRanking(data){
     if(e.pct>byUser[e.name].best) byUser[e.name].best=e.pct;
   });
   var ranking=Object.values(byUser).map(function(u){return Object.assign({},u,{avg:Math.round(u.sum/u.total)});}).sort(function(a,b){return b.avg-a.avg;});
-  var rankList=document.getElementById('admin-ranking');rankList.innerHTML='';
+  var rankList=document.getElementById('admin-ranking-list');rankList.innerHTML='';
   if(!ranking.length){rankList.innerHTML='<div class="empty" style="padding:1.5rem 0">Sin resultados para este período.</div>';return;}
   ranking.forEach(function(u,i){
     var row=document.createElement('div');row.className='hist-row';
@@ -1346,7 +1554,10 @@ async function submitQuiz(){
   });
   const pct=Math.round((correct/total)*100);
   try{
-    await sb('cx_results','POST',{user_id:currentUser.user_id,name:currentUser.name,week:currentQuiz.week,correct,total,pct,date:new Date().toLocaleDateString('es-AR'),details:JSON.stringify(details),questions:JSON.stringify(currentQuiz.questions)});
+    const now=new Date();
+    const fecha=now.toLocaleDateString('es-AR');
+    const hora=now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+    await sb('cx_results','POST',{user_id:currentUser.user_id,name:currentUser.name,week:currentQuiz.week,correct,total,pct,date:fecha,hora,details:JSON.stringify(details),questions:JSON.stringify(currentQuiz.questions)});
   }catch(e){console.error('Error guardando resultado',e);}
   document.getElementById('agente-play').style.display='none';
   document.getElementById('agente-done').style.display='block';
@@ -1537,7 +1748,7 @@ function renderMyResultsByMonth(){
   if(!data.length){list.innerHTML='<div class="empty" style="padding:1.5rem 0">Sin resultados para este mes.</div>';return;}
   data.forEach((e,idx)=>{
     const row=document.createElement('div');row.className='hist-row';row.style.cursor='pointer';
-    row.innerHTML=`<div><div style="font-weight:500">${e.week}</div><div style="font-size:12px;color:var(--text-muted)">${e.date} · ${e.correct}/${e.total} correctas</div></div>
+    row.innerHTML=`<div><div style="font-weight:500">${e.week}</div><div style="font-size:12px;color:var(--text-muted)">${e.date}${e.hora?' · '+e.hora:''} · ${e.correct}/${e.total} correctas</div></div>
       <div style="display:flex;gap:8px;align-items:center">
         <span class="tag ${e.pct>=60?'tag-success':'tag-danger'}">${e.pct}%</span>
         <span style="font-size:12px;color:var(--blue);font-weight:600">Ver →</span>
@@ -1577,7 +1788,7 @@ function showMyReview(entry){
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:1px solid var(--border)">
     <div>
       <div style="font-size:15px;font-weight:600">${entry.week}</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-top:2px">${entry.date} · ${entry.correct}/${entry.total} correctas · <span style="font-weight:600;color:${entry.pct>=60?'var(--success)':'var(--danger)'}">${entry.pct}%</span></div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:2px">${entry.date}${entry.hora?' · '+entry.hora:''} · ${entry.correct}/${entry.total} correctas · <span style="font-weight:600;color:${entry.pct>=60?'var(--success)':'var(--danger)'}">${entry.pct}%</span></div>
     </div>
     <button class="btn btn-sm" onclick="closeMyReview()">← Volver</button>
   </div>`;
@@ -2212,6 +2423,393 @@ function renderTablero(){
   }else{html+=`<td></td>`;}
   html+=`</tr></tbody></table>`;
   wrap.innerHTML=html;
+}
+
+// ============================================
+// RANKING DE PRENDAS
+// ============================================
+let _rankingData = {}; // { 'Mayo 2026': { semanas: [{nombre, puntos: {userId: n}}, ...], cerrado: bool, prenda: userId } }
+let _rankingUsers = [];
+
+function rankingKey(){ return 'cx_ranking_data'; }
+
+function agregarAgenteRanking(){
+  const input = document.getElementById('ranking-nuevo-nombre');
+  const nombre = input.value.trim();
+  if(!nombre) return;
+  const userId = nombre.toLowerCase().replace(/\s+/g,'.');
+  if(_rankingUsers.find(u=>u.user_id===userId)) { alert('Ya existe.'); return; }
+  _rankingUsers.push({ user_id: userId, name: nombre });
+  localStorage.setItem('cx_ranking_users', JSON.stringify(_rankingUsers));
+  input.value='';
+  renderAgenteRankingLista();
+  renderRanking();
+}
+
+function eliminarAgenteRanking(userId){
+  _rankingUsers = _rankingUsers.filter(u=>u.user_id!==userId);
+  localStorage.setItem('cx_ranking_users', JSON.stringify(_rankingUsers));
+  renderAgenteRankingLista();
+  renderRanking();
+}
+
+function renderAgenteRankingLista(){
+  const wrap = document.getElementById('ranking-agentes-lista');
+  if(!_rankingUsers.length){ wrap.innerHTML='<div style="color:var(--text-muted);font-size:13px">Sin agentes cargados todavía.</div>'; return; }
+  wrap.innerHTML = _rankingUsers.map(u=>`
+    <div style="display:inline-flex;align-items:center;gap:6px;background:var(--blue-light);border:1px solid var(--border-strong);border-radius:20px;padding:3px 10px;margin:3px;font-size:12px;font-weight:500">
+      ${u.name}
+      <button onclick="eliminarAgenteRanking('${u.user_id}')" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:14px;line-height:1;padding:0">×</button>
+    </div>`).join('');
+  if(_rankingUsers.length) document.getElementById('ranking-sin-usuarios').style.display='block';
+}
+
+function loadRankingData(){
+  try{ return JSON.parse(localStorage.getItem(rankingKey())||'{}'); }
+  catch(e){ return {}; }
+}
+function saveRankingData(data){
+  localStorage.setItem(rankingKey(), JSON.stringify(data));
+}
+
+async function initRanking(){
+  // Cargar usuarios del localStorage (no depende de Supabase)
+  const cached = localStorage.getItem('cx_ranking_users');
+  _rankingUsers = cached ? JSON.parse(cached) : [];
+
+  // Siempre mostrar el panel de agentes
+  document.getElementById('ranking-sin-usuarios').style.display='block';
+  renderAgenteRankingLista();
+
+  _rankingData = loadRankingData();
+
+  // Mes actual por defecto
+  const now = new Date();
+  const mesActual = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
+  if(!_rankingData[mesActual]){
+    _rankingData[mesActual] = {
+      semanas: [{nombre:'Semana 1',puntos:{},licencia:{}},{nombre:'Semana 2',puntos:{},licencia:{}},{nombre:'Semana 3',puntos:{},licencia:{}},{nombre:'Semana 4',puntos:{},licencia:{}}],
+      cerrado: false, prenda: null, acumulado: 0
+    };
+    saveRankingData(_rankingData);
+  }
+
+  // Poblar selector de mes
+  const sel = document.getElementById('ranking-mes-sel');
+  const allMeses = [...new Set([mesActual, ...Object.keys(_rankingData)])];
+  sel.innerHTML = '<option value="">Selecciona un mes</option>';
+  allMeses.forEach(m=>{
+    const o = document.createElement('option');
+    o.value = m;
+  o.textContent = m + (_rankingData[m] && _rankingData[m].cerrado ? ' (cerrado)' : '');
+    sel.appendChild(o);
+  });
+  sel.value = mesActual;
+
+  renderRanking();
+  renderHistorialPrendas();
+}
+
+function renderRanking(){
+  const mes = document.getElementById('ranking-mes-sel').value;
+  const wrap = document.getElementById('ranking-tabla-wrap');
+  const semanasHeader = document.getElementById('ranking-semanas-header');
+
+  if(!mes){ wrap.innerHTML='<div class="empty">Selecciona un mes para ver el ranking.</div>'; semanasHeader.style.display='none'; return; }
+  if(!_rankingUsers.length){ wrap.innerHTML='<div class="empty">Agregá los agentes arriba para ver el ranking.</div>'; semanasHeader.style.display='none'; return; }
+
+  if(!_rankingData[mes]){
+    _rankingData[mes] = { semanas:[{nombre:'Semana 1',puntos:{}},{nombre:'Semana 2',puntos:{}},{nombre:'Semana 3',puntos:{}},{nombre:'Semana 4',puntos:{}}], cerrado:false, prenda:null, acumulado:0 };
+    saveRankingData(_rankingData);
+  }
+
+  const mesData = _rankingData[mes];
+  const cerrado = mesData.cerrado;
+  const semanas = mesData.semanas;
+  const acumulado = mesData.acumulado || 0;
+
+  // Botón cerrar mes
+  document.getElementById('btn-cerrar-mes').style.display = cerrado ? 'none' : 'inline-block';
+
+  // Header semanas — nombres editables
+  semanasHeader.style.display = 'block';
+  const semList = document.getElementById('ranking-semanas-list');
+  semList.innerHTML = '';
+  semanas.forEach((s,i)=>{
+    const chip = document.createElement('div');
+    chip.style.cssText = 'display:flex;align-items:center;gap:6px;background:var(--blue-light);border:1.5px solid var(--border-strong);border-radius:8px;padding:5px 10px';
+    chip.innerHTML = `<input type="text" value="${s.nombre}" style="border:none;background:none;font-size:13px;font-weight:600;color:var(--blue);width:80px;outline:none" ${cerrado?'disabled':''} oninput="_rankingData['${mes}'].semanas[${i}].nombre=this.value;saveRankingData(_rankingData)" />`;
+    semList.appendChild(chip);
+  });
+
+  // Calcular totales por agente
+  const totales = {};
+  _rankingUsers.forEach(u=>{ totales[u.user_id] = { name: u.name, user_id: u.user_id, semanas: [], total: acumulado, licencia: {} }; });
+
+  semanas.forEach((s,si)=>{
+    _rankingUsers.forEach(u=>{
+      const pts = s.puntos[u.user_id] || 0;
+      const lic = s.licencia?.[u.user_id] || false;
+      if(!totales[u.user_id]) totales[u.user_id]={ name:u.name, user_id:u.user_id, semanas:[], total:acumulado, licencia:{} };
+      totales[u.user_id].semanas.push({ pts, lic });
+      if(!lic) totales[u.user_id].total += pts;
+    });
+  });
+
+  // Ordenar por total desc
+  const ranking = Object.values(totales).sort((a,b)=>b.total-a.total);
+
+  // Detectar empate en primer lugar
+  const maxPts = ranking[0]?.total || 0;
+  const empatados = ranking.filter(u=>u.total===maxPts && maxPts>0);
+  const hayEmpate = empatados.length > 1;
+
+  // Render tabla
+  const medals = ['🥇','🥈','🥉'];
+  let html = `<div style="overflow-x:auto">
+  <table style="border-collapse:collapse;width:100%;font-size:13px;min-width:500px">
+    <thead>
+      <tr>
+        <th style="text-align:left;padding:10px 14px;background:var(--blue-darker);color:#fff;font-weight:600;border-radius:8px 0 0 0;min-width:160px">Agente</th>`;
+  semanas.forEach(s=>{ html+=`<th style="text-align:center;padding:10px 10px;background:var(--blue-darker);color:#fff;font-weight:600;white-space:nowrap;font-size:12px">${s.nombre}</th>`; });
+  html+=`<th style="text-align:center;padding:10px 14px;background:var(--blue-darker);color:#fff;font-weight:600;border-radius:0 8px 0 0">Total${acumulado>0?` (+${acumulado} acum.)`:''}`;
+  html+=`</th></tr></thead><tbody>`;
+
+  ranking.forEach((u,idx)=>{
+    const esPrenda = !cerrado && u.total===maxPts && maxPts>0;
+    const rowBg = idx%2===0?'#fff':'#f8fbff';
+    const highlight = esPrenda && !hayEmpate ? 'background:#FFF3E0' : esPrenda && hayEmpate ? 'background:#FFF3E0' : '';
+    html+=`<tr style="background:${rowBg};${highlight}">
+      <td style="padding:10px 14px;font-weight:600;color:var(--text);border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span>${medals[idx]||'#'+(idx+1)}</span>
+          <span>${u.name}</span>
+          ${esPrenda && !hayEmpate ? '<span title="Prenda" style="font-size:16px">⚠️</span>' : ''}
+          ${esPrenda && hayEmpate ? '<span title="Empate — se acumula" style="font-size:14px">🤝</span>' : ''}
+        </div>
+      </td>`;
+
+    u.semanas.forEach((s,si)=>{
+      if(s.lic){
+        html+=`<td style="text-align:center;padding:10px;border-bottom:1px solid var(--border)">
+          <span style="font-size:12px;color:var(--text-muted);font-weight:500">Licencia</span>
+        </td>`;
+      } else {
+        html+=`<td style="text-align:center;padding:8px 6px;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+            ${!cerrado?`<button onclick="ajustarPuntos('${mes}',${si},'${u.user_id}',-1)" style="width:22px;height:22px;border-radius:4px;border:1px solid var(--border);background:var(--danger-bg);color:var(--danger);font-weight:700;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;line-height:1">−</button>`:''}
+            <span style="min-width:28px;text-align:center;font-weight:700;font-size:14px;color:${s.pts>0?'var(--success)':s.pts<0?'var(--danger)':'var(--text-muted)'}">${s.pts>0?'+':''}${s.pts}</span>
+            ${!cerrado?`<button onclick="ajustarPuntos('${mes}',${si},'${u.user_id}',1)" style="width:22px;height:22px;border-radius:4px;border:1px solid var(--border);background:var(--success-bg);color:var(--success);font-weight:700;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;line-height:1">+</button>`:''}
+            ${!cerrado?`<button onclick="toggleLicencia('${mes}',${si},'${u.user_id}')" title="Marcar licencia" style="width:22px;height:22px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center">L</button>`:''}
+          </div>
+        </td>`;
+      }
+    });
+
+    html+=`<td style="text-align:center;padding:10px 14px;border-bottom:1px solid var(--border)">
+      <span style="font-size:18px;font-weight:700;color:${u.total>0?'var(--success)':u.total<0?'var(--danger)':'var(--text-muted)'}">${u.total>0?'+':''}${u.total}</span>
+    </td></tr>`;
+  });
+
+  // Fila de info empate
+  if(hayEmpate && !cerrado){
+    html+=`<tr><td colspan="${semanas.length+2}" style="padding:10px 14px;background:#FFF3E0;font-size:13px;color:#8B4513;text-align:center">
+      🤝 Empate entre ${empatados.map(u=>u.name).join(' y ')} — si cierra el mes así, los puntos se acumulan al mes siguiente
+    </td></tr>`;
+  }
+
+  html+=`</tbody></table></div>`;
+  wrap.innerHTML = html;
+}
+
+function ajustarPuntos(mes, semIdx, userId, delta){
+  if(!_rankingData[mes]) return;
+  const sem = _rankingData[mes].semanas[semIdx];
+  if(!sem.puntos) sem.puntos = {};
+  sem.puntos[userId] = (sem.puntos[userId]||0) + delta;
+  saveRankingData(_rankingData);
+  renderRanking();
+}
+
+function toggleLicencia(mes, semIdx, userId){
+  if(!_rankingData[mes]) return;
+  const sem = _rankingData[mes].semanas[semIdx];
+  if(!sem.licencia) sem.licencia = {};
+  sem.licencia[userId] = !sem.licencia[userId];
+  if(sem.licencia[userId]) sem.puntos[userId] = 0; // reset puntos si va a licencia
+  saveRankingData(_rankingData);
+  renderRanking();
+}
+
+function cerrarMesRanking(){
+  const mes = document.getElementById('ranking-mes-sel').value;
+  if(!mes || !_rankingData[mes]) return;
+  if(!confirm(`¿Cerrar el mes de ${mes}? Esto fija el ranking y registra la prenda.`)) return;
+
+  const mesData = _rankingData[mes];
+  const acumulado = mesData.acumulado || 0;
+  const totales = {};
+  _rankingUsers.forEach(u=>{ totales[u.user_id]={ name:u.name, total:acumulado }; });
+  mesData.semanas.forEach(s=>{
+    Object.entries(s.puntos||{}).forEach(([uid,pts])=>{
+      if(s.licencia?.[uid]) return;
+      if(totales[uid]) totales[uid].total += pts;
+    });
+  });
+
+  const ranking = Object.values(totales).sort((a,b)=>b.total-a.total);
+  const maxPts = ranking[0]?.total || 0;
+  const empatados = ranking.filter(u=>u.total===maxPts && maxPts>0);
+  const hayEmpate = empatados.length > 1;
+
+  mesData.cerrado = true;
+
+  if(hayEmpate){
+    // Acumular al mes siguiente
+    mesData.prenda = null;
+    mesData.empate = empatados.map(u=>u.name);
+    mesData.acumuladoSiguiente = maxPts;
+
+    // Crear mes siguiente con acumulado
+    const [nombreMes, anio] = mes.split(' ');
+    const mesIdx = MONTH_NAMES.indexOf(nombreMes);
+    const sigMesIdx = (mesIdx+1)%12;
+    const sigAnio = sigMesIdx===0 ? parseInt(anio)+1 : parseInt(anio);
+    const sigMes = `${MONTH_NAMES[sigMesIdx]} ${sigAnio}`;
+    if(!_rankingData[sigMes]){
+      _rankingData[sigMes]={ semanas:[{nombre:'Semana 1',puntos:{}},{nombre:'Semana 2',puntos:{}},{nombre:'Semana 3',puntos:{}},{nombre:'Semana 4',puntos:{}}], cerrado:false, prenda:null, acumulado:maxPts };
+    } else {
+      _rankingData[sigMes].acumulado = (_rankingData[sigMes].acumulado||0) + maxPts;
+    }
+    alert(`🤝 Empate entre ${empatados.map(u=>u.name).join(' y ')}. Los ${maxPts} puntos se acumulan a ${sigMes}.`);
+  } else if(maxPts > 0){
+    mesData.prenda = ranking[0].name;
+    alert(`⚠️ ¡${ranking[0].name} tiene la prenda de ${mes} con ${maxPts} puntos!`);
+  } else {
+    alert(`El mes ${mes} se cerró sin prendas (todos en 0).`);
+  }
+
+  saveRankingData(_rankingData);
+  renderRanking();
+  renderHistorialPrendas();
+  initRanking(); // refrescar selector
+}
+
+function renderHistorialPrendas(){
+  const wrap = document.getElementById('ranking-historial');
+  const data = loadRankingData();
+  const mesesCerrados = Object.entries(data).filter(([,v])=>v.cerrado && v.prenda).sort((a,b)=>a[0]>b[0]?-1:1);
+  if(!mesesCerrados.length){ wrap.innerHTML='<div class="empty" style="padding:1.5rem 0">Sin prendas registradas todavía.</div>'; return; }
+  wrap.innerHTML = mesesCerrados.map(([mes,v])=>`
+    <div class="hist-row">
+      <div><div style="font-weight:600">${mes}</div><div style="font-size:12px;color:var(--text-muted)">Mayor puntaje del mes</div></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:16px">⚠️</span>
+        <span style="font-weight:600;color:var(--danger)">${v.prenda}</span>
+      </div>
+    </div>`).join('');
+}
+
+function exportarRanking(){
+  const mes = document.getElementById('ranking-mes-sel').value;
+  if(!mes || !_rankingData[mes]){ alert('Selecciona un mes primero.'); return; }
+  const mesData = _rankingData[mes];
+  const acumulado = mesData.acumulado || 0;
+  const totales = {};
+  _rankingUsers.forEach(u=>{ totales[u.user_id]={ name:u.name, semanas:[], total:acumulado }; });
+  mesData.semanas.forEach((s,i)=>{
+    _rankingUsers.forEach(u=>{
+      const lic = s.licencia?.[u.user_id]||false;
+      const pts = lic ? 'Licencia' : (s.puntos?.[u.user_id]||0);
+      totales[u.user_id].semanas.push(pts);
+      if(!lic) totales[u.user_id].total += (s.puntos?.[u.user_id]||0);
+    });
+  });
+  const ranking = Object.values(totales).sort((a,b)=>b.total-a.total);
+  const headers = ['Posición','Agente',...mesData.semanas.map(s=>s.nombre),'Total Puntos','Prenda'];
+  const rows = ranking.map((u,i)=>[
+    i+1, u.name, ...u.semanas, u.total,
+    mesData.prenda===u.name?'⚠️ Sí':''
+  ]);
+  const bom='\uFEFF';
+  const csv=bom+[headers,...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`Ranking_Prendas_${mes.replace(' ','_')}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+function renderAgenteRanking(){
+  const wrap = document.getElementById('agente-ranking-content');
+  const data = loadRankingData();
+  const users = JSON.parse(localStorage.getItem('cx_ranking_users')||'[]');
+  if(!users.length){ wrap.innerHTML='<div class="empty">El ranking todavía no tiene agentes cargados.</div>'; return; }
+
+  // Mes actual
+  const now = new Date();
+  const mesActual = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
+  const mesData = data[mesActual];
+  if(!mesData){ wrap.innerHTML='<div class="empty">No hay datos de ranking para este mes.</div>'; return; }
+
+  const APROBADO = 0; // en ranking de prendas el mayor puntaje es el peor
+  const acumulado = mesData.acumulado || 0;
+  const medals = ['🥇','🥈','🥉'];
+
+  // Calcular totales
+  const totales = {};
+  users.forEach(u=>{ totales[u.user_id]={ name:u.name, total:acumulado, quizzesHechos:0 }; });
+  mesData.semanas.forEach(s=>{
+    Object.entries(s.puntos||{}).forEach(([uid,pts])=>{
+      if(s.licencia && s.licencia[uid]) return;
+      if(totales[uid]) totales[uid].total += pts;
+    });
+  });
+
+  const ranking = Object.values(totales).sort((a,b)=>b.total-a.total);
+  const maxPts = ranking[0]?.total || 0;
+
+  let html = `<div style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;font-weight:500">${mesActual}${acumulado>0?` · +${acumulado} pts acumulados de mes anterior`:''}</div>`;
+  html += `<div class="card" style="padding:1.25rem 1.5rem">`;
+
+  ranking.forEach((u,i)=>{
+    const esPrenda = u.total === maxPts && maxPts > 0;
+    html += `<div style="margin-bottom:${i<ranking.length-1?'1.25rem':'0'}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:18px;min-width:28px">${medals[i]||'#'+(i+1)}</span>
+          <div>
+            <div style="font-weight:600;font-size:14px">${u.name}${esPrenda?` <span style="font-size:14px">⚠️</span>`:''}</div>
+          </div>
+        </div>
+        <div style="font-size:20px;font-weight:700;color:${u.total>0?'var(--danger)':u.total<0?'var(--success)':'var(--text-muted)'}">${u.total>0?'+':''}${u.total}</div>
+      </div>
+      <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${maxPts>0?Math.round((u.total/maxPts)*100):0}%;background:${esPrenda?'var(--danger)':'var(--blue)'};border-radius:3px"></div>
+      </div>
+    </div>`;
+  });
+
+  html += `</div>`;
+
+  // Historial de prendas
+  const mesesCerrados = Object.entries(data).filter(([,v])=>v.cerrado && v.prenda).sort((a,b)=>a[0]>b[0]?-1:1);
+  if(mesesCerrados.length){
+    html += `<div class="section-title" style="margin-top:1.5rem">Historial de prendas</div>
+    <div class="card" style="padding:0 1.5rem">`;
+    mesesCerrados.forEach(([mes,v])=>{
+      html += `<div class="hist-row">
+        <div><div style="font-weight:500">${mes}</div></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:16px">⚠️</span>
+          <span style="font-weight:600;color:var(--danger)">${v.prenda}</span>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  wrap.innerHTML = html;
 }
 
 init();
