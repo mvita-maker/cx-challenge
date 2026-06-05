@@ -2433,29 +2433,33 @@ let _rankingUsers = [];
 
 function rankingKey(){ return 'cx_ranking_data'; }
 
-function agregarAgenteRanking(){
+async function agregarAgenteRanking(){
   const input = document.getElementById('ranking-nuevo-nombre');
   const nombre = input.value.trim();
   if(!nombre) return;
   const userId = nombre.toLowerCase().replace(/\s+/g,'.');
-  if(_rankingUsers.find(u=>u.user_id===userId)) { alert('Ya existe.'); return; }
-  _rankingUsers.push({ user_id: userId, name: nombre });
-  localStorage.setItem('cx_ranking_users', JSON.stringify(_rankingUsers));
-  input.value='';
-  renderAgenteRankingLista();
-  renderRanking();
+  if(_rankingUsers.find(u=>u.user_id===userId)){alert('Ya existe.');return;}
+  try{
+    await sb('cx_ranking_users','POST',{user_id:userId, name:nombre});
+    _rankingUsers.push({user_id:userId, name:nombre});
+    input.value='';
+    renderAgenteRankingLista();
+    renderRanking();
+  }catch(e){alert('Error al guardar agente.');}
 }
 
-function eliminarAgenteRanking(userId){
-  _rankingUsers = _rankingUsers.filter(u=>u.user_id!==userId);
-  localStorage.setItem('cx_ranking_users', JSON.stringify(_rankingUsers));
-  renderAgenteRankingLista();
-  renderRanking();
+async function eliminarAgenteRanking(userId){
+  try{
+    await sb('cx_ranking_users','DELETE',null,`?user_id=eq.${userId}`);
+    _rankingUsers = _rankingUsers.filter(u=>u.user_id!==userId);
+    renderAgenteRankingLista();
+    renderRanking();
+  }catch(e){alert('Error al eliminar agente.');}
 }
 
 function renderAgenteRankingLista(){
   const wrap = document.getElementById('ranking-agentes-lista');
-  if(!_rankingUsers.length){ wrap.innerHTML='<div style="color:var(--text-muted);font-size:13px">Sin agentes cargados todavía.</div>'; return; }
+  if(!_rankingUsers.length){wrap.innerHTML='<div style="color:var(--text-muted);font-size:13px">Sin agentes cargados todavía.</div>';return;}
   wrap.innerHTML = _rankingUsers.map(u=>`
     <div style="display:inline-flex;align-items:center;gap:6px;background:var(--blue-light);border:1px solid var(--border-strong);border-radius:20px;padding:3px 10px;margin:3px;font-size:12px;font-weight:500">
       ${u.name}
@@ -2464,24 +2468,40 @@ function renderAgenteRankingLista(){
   if(_rankingUsers.length) document.getElementById('ranking-sin-usuarios').style.display='block';
 }
 
-function loadRankingData(){
-  try{ return JSON.parse(localStorage.getItem(rankingKey())||'{}'); }
-  catch(e){ return {}; }
+async function loadRankingData(){
+  try{
+    const rows = await sb('cx_ranking','GET',null,'?select=*');
+    const data = {};
+    rows.forEach(r=>{ data[r.mes] = r.data; });
+    return data;
+  }catch(e){ return {}; }
 }
-function saveRankingData(data){
-  localStorage.setItem(rankingKey(), JSON.stringify(data));
+
+async function saveRankingData(data){
+  try{
+    for(const [mes, mesData] of Object.entries(data)){
+      const existing = await sb('cx_ranking','GET',null,`?mes=eq.${encodeURIComponent(mes)}`);
+      if(existing.length){
+        await sb('cx_ranking','PATCH',{data:mesData},`?mes=eq.${encodeURIComponent(mes)}`);
+      }else{
+        await sb('cx_ranking','POST',{mes,data:mesData});
+      }
+    }
+  }catch(e){console.error('Error guardando ranking:',e);}
 }
 
 async function initRanking(){
-  // Cargar usuarios del localStorage (no depende de Supabase)
-  const cached = localStorage.getItem('cx_ranking_users');
-  _rankingUsers = cached ? JSON.parse(cached) : [];
+  // Cargar usuarios desde Supabase
+  try{
+    const users = await sb('cx_ranking_users','GET',null,'?select=*&order=name.asc');
+    _rankingUsers = users.length ? users : [];
+  }catch(e){ _rankingUsers=[]; }
 
   // Siempre mostrar el panel de agentes
   document.getElementById('ranking-sin-usuarios').style.display='block';
   renderAgenteRankingLista();
 
-  _rankingData = loadRankingData();
+  _rankingData = await loadRankingData();
 
   // Mes actual por defecto
   const now = new Date();
@@ -2622,22 +2642,22 @@ function renderRanking(){
   wrap.innerHTML = html;
 }
 
-function ajustarPuntos(mes, semIdx, userId, delta){
+async function ajustarPuntos(mes, semIdx, userId, delta){
   if(!_rankingData[mes]) return;
   const sem = _rankingData[mes].semanas[semIdx];
   if(!sem.puntos) sem.puntos = {};
   sem.puntos[userId] = (sem.puntos[userId]||0) + delta;
-  saveRankingData(_rankingData);
+  await saveRankingData(_rankingData);
   renderRanking();
 }
 
-function toggleLicencia(mes, semIdx, userId){
+async function toggleLicencia(mes, semIdx, userId){
   if(!_rankingData[mes]) return;
   const sem = _rankingData[mes].semanas[semIdx];
   if(!sem.licencia) sem.licencia = {};
   sem.licencia[userId] = !sem.licencia[userId];
-  if(sem.licencia[userId]) sem.puntos[userId] = 0; // reset puntos si va a licencia
-  saveRankingData(_rankingData);
+  if(sem.licencia[userId]) sem.puntos[userId] = 0;
+  await saveRankingData(_rankingData);
   renderRanking();
 }
 
@@ -2697,7 +2717,7 @@ function cerrarMesRanking(){
 
 function renderHistorialPrendas(){
   const wrap = document.getElementById('ranking-historial');
-  const data = loadRankingData();
+  const data = _rankingData;
   const mesesCerrados = Object.entries(data).filter(([,v])=>v.cerrado && v.prenda).sort((a,b)=>a[0]>b[0]?-1:1);
   if(!mesesCerrados.length){ wrap.innerHTML='<div class="empty" style="padding:1.5rem 0">Sin prendas registradas todavía.</div>'; return; }
   wrap.innerHTML = mesesCerrados.map(([mes,v])=>`
@@ -2742,7 +2762,7 @@ function exportarRanking(){
 
 function renderAgenteRanking(){
   const wrap = document.getElementById('agente-ranking-content');
-  const data = loadRankingData();
+  const data = _rankingData;
   const users = JSON.parse(localStorage.getItem('cx_ranking_users')||'[]');
   if(!users.length){ wrap.innerHTML='<div class="empty">El ranking todavía no tiene agentes cargados.</div>'; return; }
 
