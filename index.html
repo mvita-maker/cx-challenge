@@ -2760,25 +2760,32 @@ function exportarRanking(){
   document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
 }
 
-function renderAgenteRanking(){
+async function renderAgenteRanking(){
   const wrap = document.getElementById('agente-ranking-content');
-  const data = _rankingData;
-  const users = JSON.parse(localStorage.getItem('cx_ranking_users')||'[]');
+  wrap.innerHTML='<div class="empty">Cargando...</div>';
+
+  // Cargar datos frescos desde Supabase
+  let data = {};
+  let users = [];
+  try{
+    const rows = await sb('cx_ranking','GET',null,'?select=*');
+    rows.forEach(r=>{ data[r.mes] = r.data; });
+    const uRows = await sb('cx_ranking_users','GET',null,'?select=*&order=name.asc');
+    users = uRows;
+  }catch(e){}
+
   if(!users.length){ wrap.innerHTML='<div class="empty">El ranking todavía no tiene agentes cargados.</div>'; return; }
 
-  // Mes actual
   const now = new Date();
   const mesActual = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
   const mesData = data[mesActual];
   if(!mesData){ wrap.innerHTML='<div class="empty">No hay datos de ranking para este mes.</div>'; return; }
 
-  const APROBADO = 0; // en ranking de prendas el mayor puntaje es el peor
   const acumulado = mesData.acumulado || 0;
   const medals = ['🥇','🥈','🥉'];
 
-  // Calcular totales
   const totales = {};
-  users.forEach(u=>{ totales[u.user_id]={ name:u.name, total:acumulado, quizzesHechos:0 }; });
+  users.forEach(u=>{ totales[u.user_id]={ name:u.name, total:acumulado }; });
   mesData.semanas.forEach(s=>{
     Object.entries(s.puntos||{}).forEach(([uid,pts])=>{
       if(s.licencia && s.licencia[uid]) return;
@@ -2789,7 +2796,7 @@ function renderAgenteRanking(){
   const ranking = Object.values(totales).sort((a,b)=>b.total-a.total);
   const maxPts = ranking[0]?.total || 0;
 
-  let html = `<div style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;font-weight:500">${mesActual}${acumulado>0?` · +${acumulado} pts acumulados de mes anterior`:''}</div>`;
+  let html = `<div style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;font-weight:500">${mesActual}${acumulado>0?` · +${acumulado} pts acumulados`:''}</div>`;
   html += `<div class="card" style="padding:1.25rem 1.5rem">`;
 
   ranking.forEach((u,i)=>{
